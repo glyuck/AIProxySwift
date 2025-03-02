@@ -51,6 +51,10 @@ public struct StabilityAIStableDiffusionRequestBody: MultipartFormEncodable {
     /// Defaults to `sd3Large`
     public let model: StabilityAIStableDiffusionModel?
 
+    /// Guides the image model towards a particular style.
+    /// Important: This parameter has no effect on the sd3-* models.
+    public let stylePreset: StabilityAIStylePreset?
+
     /// Keywords of what you do not wish to see in the output image. This is an advanced feature.
     /// Important: This parameter does not work with sd3-large-turbo.
     public let negativePrompt: String?
@@ -75,6 +79,7 @@ public struct StabilityAIStableDiffusionRequestBody: MultipartFormEncodable {
             self.image.flatMap { .fileField(name: "image", content: $0, contentType: "image/jpeg", filename: "aiproxy.m4a") },
             self.mode.flatMap { .textField(name: "mode", content: $0.rawValue) },
             self.model.flatMap { .textField(name: "model", content: $0.rawValue) },
+            self.stylePreset.flatMap { .textField(name: "style_preset", content: $0.rawValue) },
             self.negativePrompt.flatMap { .textField(name: "negative_prompt", content: $0) },
             self.outputFormat.flatMap { .textField(name: "output_format", content: $0.rawValue) },
             self.seed.flatMap { .textField(name: "seed", content: String($0)) },
@@ -94,6 +99,7 @@ public struct StabilityAIStableDiffusionRequestBody: MultipartFormEncodable {
         image: Data? = nil,
         mode: StabilityAIGenerationMode? = nil,
         model: StabilityAIStableDiffusionModel? = nil,
+        stylePreset: StabilityAIStylePreset? = nil,
         negativePrompt: String? = nil,
         outputFormat: StabilityAIStableDiffusionOutputFormat? = nil,
         seed: Int? = nil,
@@ -104,6 +110,7 @@ public struct StabilityAIStableDiffusionRequestBody: MultipartFormEncodable {
         self.image = image
         self.mode = mode
         self.model = model
+        self.stylePreset = stylePreset
         self.negativePrompt = negativePrompt
         self.outputFormat = outputFormat
         self.seed = seed
@@ -125,4 +132,27 @@ public enum StabilityAIStableDiffusionModel: String {
     case sd3Medium = "sd3-medium"
     case sd3Large = "sd3-large"
     case sd3LargeTurbo = "sd3-large-turbo"
+    case sd35Medium = "sd3.5-medium"
+    case sd35Large = "sd3.5-large"
+    case sd35LargeTurbo = "sd3.5-large-turbo"
+}
+
+public enum StabilityAIStylePreset: String {
+    case _3dModel = "3d-model"
+    case analogFilm = "analog-film"
+    case anime
+    case cinematic
+    case comicBook = "comic-book"
+    case digitalArt = "digital-art"
+    case enhance
+    case fantasyArt = "fantasy-art"
+    case isometric
+    case lineArt = "line-art"
+    case lowPoly = "low-poly"
+    case modelingCompound = "modeling-compound"
+    case neonPunk = "neon-punk"
+    case origami
+    case photographic
+    case pixelArt = "pixel-art"
+    case tileTexture = "tile-texture"
 }
