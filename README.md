@@ -80,6 +80,21 @@ AIProxy as an alternative to building, monitoring, and maintaining your own back
   tree and select 'Update Package'.
 
 
+## How to contribute to the package
+
+Your additions to AIProxySwift are welcome! I like to develop the library while working in an
+app that depends on it:
+
+1. Fork the repo
+2. Clone your fork
+3. Open your app in Xcode
+4. Remove AIProxySwift from your app (since this is likely referencing a remote lib)
+5. Go to `File > Add Package Dependencies`, and in the bottom left of that popup there is a button "Add local"
+6. Tap "Add local" and then select the folder where you cloned AIProxySwift on your disk.
+
+If you do that, then you can modify the source to AIProxySwift right from within your Xcode project for your app.
+Once you're happy with your changes, open a PR here.
+
 # Example usage
 
 Along with the snippets below, which you can copy and paste into your Xcode project, we also
@@ -1015,6 +1030,15 @@ final class RealtimeManager {
         self.microphonePCMSampleVendor = microphonePCMSampleVendor
         self.audioPCMPlayer = audioPCMPlayer
         self.realtimeSession = realtimeSession
+    }
+
+    func stopConversation() {
+        self.microphonePCMSampleVendor?.stop()
+        self.audioPCMPlayer?.interruptPlayback()
+        self.realtimeSession?.disconnect()
+        self.microphonePCMSampleVendor = nil
+        self.audioPCMPlayer = nil
+        self.realtimeSession = nil
     }
 }
 ```
@@ -2563,6 +2587,51 @@ See the full range of controls for generating an image by viewing `ReplicateSDXL
 ```
 
 See the full range of controls for generating an image by viewing `ReplicateSDXLFreshInkInputSchema.swift`
+
+### How to call DeepSeek's 7B vision model on replicate
+
+Add a file called 'my-image.jpg' to Xcode app assets. Then run this snippet:
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let replicateService = AIProxy.replicateDirectService(
+    //     unprotectedAPIKey: "your-replicate-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let replicateService = AIProxy.replicateService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    guard let image = NSImage(named: "my-image") else {
+        print("Could not find an image named 'my-image' in your app assets")
+        return
+    }
+
+    guard let imageURL = AIProxy.encodeImageAsURL(image: image, compressionQuality: 0.4) else {
+        print("Could not encode image as a data URI")
+        return
+    }
+
+    do {
+        let input = ReplicateDeepSeekVL7BInputSchema(
+            image: imageURL,
+            prompt: "What are the colors in this pic"
+        )
+        let description = try await replicateService.runDeepSeekVL7B(input: input, secondsToWait: 300)
+        print("Done getting descriptions from DeepSeekVL7B: ", description)
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        // You may want to catch additional Foundation errors and pop the appropriate UI
+        // to the user. See "How to catch Foundation errors for specific conditions" here:
+        // https://www.aiproxy.com/docs/integration-options.html
+        print("Could not use deepseek vision on replicate: \(error.localizedDescription)")
+    }
+```
 
 
 ### How to call your own models on Replicate.
