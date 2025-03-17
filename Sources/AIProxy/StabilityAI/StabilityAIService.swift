@@ -31,4 +31,17 @@ public protocol StabilityAIService {
     func stableDiffusionRequest(
         body: StabilityAIStableDiffusionRequestBody
     ) async throws -> StabilityAIImageResponse
+
+    /// Initiates a request to /v2beta/image-to-video
+    /// - Parameters:
+    ///   - body: The request body to send to aiproxy and StabilityAI. See this reference:
+    ///           https://platform.stability.ai/docs/api-reference#tag/Image-to-Video/paths/~1v2beta~1image-to-video/post
+    /// - Returns: The response as StabilityAIImageToVideoResponseBody, with video generation identifier
+    func imageToVideoRequest(
+        body: StabilityAIImageToVideoRequestBody
+    ) async throws -> StabilityAIImageToVideoResponseBody
+
+    func imageToVideoResultRequest(
+        generationId: String
+    ) async throws -> Data?
 }

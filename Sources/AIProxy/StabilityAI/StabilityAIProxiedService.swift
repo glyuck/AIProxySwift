@@ -78,4 +78,47 @@ open class StabilityAIProxiedService: StabilityAIService, ProxiedService {
             seed: httpResponse.allHeaderFields["seed"] as? String
         )
     }
+
+    public func imageToVideoRequest(
+        body: StabilityAIImageToVideoRequestBody
+    ) async throws -> StabilityAIImageToVideoResponseBody {
+        let boundary = UUID().uuidString
+        let request = try await AIProxyURLRequest.create(
+            partialKey: self.partialKey,
+            serviceURL: self.serviceURL,
+            clientID: self.clientID,
+            proxyPath: "v2beta/image-to-video",
+            body: formEncode(body, boundary),
+            verb: .post,
+            contentType: "multipart/form-data; boundary=\(boundary)"
+        )
+        return try await makeRequestAndDeserializeResponse(request)
+    }
+
+    public func imageToVideoResultRequest(
+        generationId: String
+    ) async throws -> Data? {
+        let request = try await AIProxyURLRequest.create(
+            partialKey: self.partialKey,
+            serviceURL: self.serviceURL,
+            clientID: self.clientID,
+            proxyPath: "v2beta/image-to-video/result/\(generationId)",
+            body: nil,
+            verb: .get,
+            additionalHeaders: ["Accept": "video/*"]
+        )
+        let (data, httpResponse) = try await BackgroundNetworker.makeRequestAndWaitForData(
+            self.urlSession,
+            request
+        )
+        if httpResponse.statusCode == 202 {
+            return nil
+        } else if httpResponse.statusCode == 200 {
+            return data
+        }
+        throw AIProxyError.unsuccessfulRequest(
+            statusCode: httpResponse.statusCode,
+            responseBody: String(data: data , encoding: .utf8) ?? ""
+        )
+    }
 }
