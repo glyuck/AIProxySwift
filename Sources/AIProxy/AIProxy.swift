@@ -230,11 +230,11 @@ public struct AIProxy {
         serviceURL: String,
         clientID: String? = nil
     ) -> StabilityAIService {
-        return StabilityAIProxiedService(
+        StabilityAIService(requestFactory: AIProxyProxiedRequestFactory(
             partialKey: partialKey,
             serviceURL: serviceURL,
             clientID: clientID
-        )
+        ))
     }
 
     /// Service that makes request directly to StabilityAI. No protections are built-in for this service.
@@ -246,9 +246,12 @@ public struct AIProxy {
     public static func stabilityAIDirectService(
         unprotectedAPIKey: String
     ) -> StabilityAIService {
-        return StabilityAIDirectService(
-            unprotectedAPIKey: unprotectedAPIKey
-        )
+        StabilityAIService(requestFactory: AIProxyDirectRequestFactory(
+            baseURL: "https://api.stability.ai",
+            additionalHeaders: [
+                "Authorization": "Bearer \(unprotectedAPIKey)"
+            ]
+        ))
     }
 
     /// AIProxy's DeepL service
