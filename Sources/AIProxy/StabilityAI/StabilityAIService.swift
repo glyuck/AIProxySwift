@@ -118,4 +118,13 @@ public class StabilityAIService: ProxiedService {
             responseBody: String(data: data , encoding: .utf8) ?? ""
         )
     }
+
+    public func editInpaintRequest(
+        body: StabilityAIEditInpaintRequestBody
+    ) async throws -> StabilityAIImageResponse {
+        return try await self.stabilityRequestCommon(
+            body: body,
+            path: "/v2beta/stable-image/edit/inpaint"
+        )
+    }
 }
