@@ -30,7 +30,6 @@ public class StabilityAIService: ProxiedService {
         )
     }
 
-
     /// Initiates a request to /v2beta/stable-image/generate/sd3
     ///
     /// - Parameters:
@@ -70,7 +69,7 @@ public class StabilityAIService: ProxiedService {
             seed: httpResponse.allHeaderFields["seed"] as? String
         )
     }
-
+    
     /// Initiates a request to /v2beta/image-to-video
     /// - Parameters:
     ///   - body: The request body to send to aiproxy and StabilityAI. See this reference:
@@ -118,13 +117,22 @@ public class StabilityAIService: ProxiedService {
             responseBody: String(data: data , encoding: .utf8) ?? ""
         )
     }
-
+    
     public func editInpaintRequest(
         body: StabilityAIEditInpaintRequestBody
     ) async throws -> StabilityAIImageResponse {
         return try await self.stabilityRequestCommon(
             body: body,
             path: "/v2beta/stable-image/edit/inpaint"
+        )
+    }
+
+    public func editEraseRequest(
+        body: StabilityAIEditEraseRequestBody
+    ) async throws -> StabilityAIImageResponse {
+        return try await self.stabilityRequestCommon(
+            body: body,
+            path: "/v2beta/stable-image/edit/erase"
         )
     }
 }
