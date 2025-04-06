@@ -135,4 +135,13 @@ public class StabilityAIService: ProxiedService {
             path: "/v2beta/stable-image/edit/erase"
         )
     }
+
+    public func editSearchAndReplaceRequest(
+        body: StabilityAIEditSearchAndReplaceRequestBody
+    ) async throws -> StabilityAIImageResponse {
+        return try await self.stabilityRequestCommon(
+            body: body,
+            path: "/v2beta/stable-image/edit/search-and-replace"
+        )
+    }
 }
