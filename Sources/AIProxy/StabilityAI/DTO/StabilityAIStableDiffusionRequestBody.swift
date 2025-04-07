@@ -63,6 +63,11 @@ public struct StabilityAIStableDiffusionRequestBody: MultipartFormEncodable {
     /// Defaults to `png`
     public let outputFormat: StabilityAIStableDiffusionOutputFormat?
 
+    /// How strictly the diffusion process adheres to the prompt text (higher
+    /// values keep your image closer to your prompt). The Large and Medium
+    /// models use a default of `4`. The Turbo model uses a default of `1`.
+    public let cfgScale: Double?
+
     /// A specific value that is used to guide the 'randomness' of the generation. (Omit this
     /// parameter or pass `0` to use a random seed.)
     /// Possible values: `[ 0 .. 4294967294 ]`
@@ -82,6 +87,7 @@ public struct StabilityAIStableDiffusionRequestBody: MultipartFormEncodable {
             self.stylePreset.flatMap { .textField(name: "style_preset", content: $0.rawValue) },
             self.negativePrompt.flatMap { .textField(name: "negative_prompt", content: $0) },
             self.outputFormat.flatMap { .textField(name: "output_format", content: $0.rawValue) },
+            self.cfgScale.flatMap { .textField(name: "cfg_scale", content: String($0)) },
             self.seed.flatMap { .textField(name: "seed", content: String($0)) },
             self.strength.flatMap { .textField(name: "strength", content: String($0)) },
         ].compactMap { $0 }
@@ -102,6 +108,7 @@ public struct StabilityAIStableDiffusionRequestBody: MultipartFormEncodable {
         stylePreset: StabilityAIStylePreset? = nil,
         negativePrompt: String? = nil,
         outputFormat: StabilityAIStableDiffusionOutputFormat? = nil,
+        cfgScale: Double? = nil,
         seed: Int? = nil,
         strength: Double? = nil
     ) {
@@ -113,6 +120,7 @@ public struct StabilityAIStableDiffusionRequestBody: MultipartFormEncodable {
         self.stylePreset = stylePreset
         self.negativePrompt = negativePrompt
         self.outputFormat = outputFormat
+        self.cfgScale = cfgScale
         self.seed = seed
         self.strength = strength
     }
