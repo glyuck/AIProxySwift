@@ -144,4 +144,13 @@ public class StabilityAIService: ProxiedService {
             path: "/v2beta/stable-image/edit/search-and-replace"
         )
     }
+
+    public func editRemoveBackgroundRequest(
+        body: StabilityAIEditRemoveBackgroundRequestBody
+    ) async throws -> StabilityAIImageResponse {
+        return try await self.stabilityRequestCommon(
+            body: body,
+            path: "/v2beta/stable-image/edit/remove-background"
+        )
+    }
 }
