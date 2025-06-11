@@ -51,6 +51,16 @@ import Foundation
 /// please report them to me.
 open class AIProxyCertificatePinningDelegate: NSObject, URLSessionDelegate, URLSessionTaskDelegate {
 
+   public var progressCallback: ((Double) -> Void)?
+   
+   public func setProgressCallback(_ callback: @escaping (Double) -> Void) {
+       self.progressCallback = callback
+   }
+   
+   public func clearProgressCallback() {
+       self.progressCallback = nil
+   }
+
    public func urlSession(
       _ session: URLSession,
       task: URLSessionTask,
@@ -64,6 +74,19 @@ open class AIProxyCertificatePinningDelegate: NSObject, URLSessionDelegate, URLS
       didReceive challenge: URLAuthenticationChallenge
    ) async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
       return self.answerChallenge(challenge)
+   }
+   
+   public func urlSession(
+       _ session: URLSession,
+       task: URLSessionTask,
+       didSendBodyData bytesSent: Int64,
+       totalBytesSent: Int64,
+       totalBytesExpectedToSend: Int64
+   ) {
+       guard let progressCallback = progressCallback,
+             totalBytesExpectedToSend > 0 else { return }
+       let progress = Double(totalBytesSent) / Double(totalBytesExpectedToSend)
+       progressCallback(progress)
    }
 
    private func answerChallenge(
@@ -118,6 +141,15 @@ open class AIProxyCertificatePinningDelegate: NSObject, URLSessionDelegate, URLS
  }()
 
 private let publicKeysAsHex: [[UInt8]] = [
+     // live on api.aiproxy.com
+     [
+         0x04, 0x4a, 0x42, 0x12, 0xe7, 0xed, 0x36, 0xb4, 0xa9, 0x1f, 0x96, 0x7e, 0xcf, 0xbd, 0xe0,
+         0x9d, 0xea, 0x4b, 0xfb, 0xaf, 0xe7, 0xc6, 0x93, 0xf0, 0xbf, 0x92, 0x0f, 0x12, 0x7a, 0x22,
+         0x7d, 0x00, 0x77, 0x81, 0xa5, 0x06, 0x26, 0x06, 0x5c, 0x47, 0x8f, 0x57, 0xef, 0x41, 0x39,
+         0x0b, 0x3d, 0x41, 0x72, 0x68, 0x33, 0x86, 0x69, 0x14, 0x2a, 0x36, 0x4d, 0x74, 0x7d, 0xbc,
+         0x60, 0x91, 0xff, 0xcc, 0x29,
+     ],
+
      // live on api.aiproxy.pro
      [
          0x04, 0x25, 0xa2, 0xd1, 0x81, 0xc0, 0x38, 0xce, 0x57, 0xaa, 0x6e, 0xf0, 0x5a, 0xc3, 0x6a,

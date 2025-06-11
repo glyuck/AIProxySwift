@@ -55,6 +55,7 @@ public class StabilityAIService: ProxiedService {
             path: path,
             body: formEncode(body, boundary),
             verb: .post,
+            secondsToWait: 60,
             contentType: "multipart/form-data; boundary=\(boundary)",
             additionalHeaders: ["Accept": "image/*"]
         )
@@ -83,6 +84,7 @@ public class StabilityAIService: ProxiedService {
             path: "v2beta/image-to-video",
             body: formEncode(body, boundary),
             verb: .post,
+            secondsToWait: 60,
             contentType: "multipart/form-data; boundary=\(boundary)",
             additionalHeaders: [:]
         )
@@ -100,6 +102,7 @@ public class StabilityAIService: ProxiedService {
             path: "v2beta/image-to-video/result/\(generationId)",
             body: nil,
             verb: .get,
+            secondsToWait: 60,
             contentType: nil,
             additionalHeaders: ["Accept": "video/*"]
         )

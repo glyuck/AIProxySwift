@@ -12,6 +12,7 @@ protocol AIProxyRequestFactory {
         path: String,
         body: Data?,
         verb: AIProxyHTTPVerb,
+        secondsToWait: UInt,
         contentType: String?,
         additionalHeaders: [String: String]
     ) async throws -> URLRequest
@@ -32,6 +33,7 @@ class AIProxyProxiedRequestFactory: AIProxyRequestFactory {
         path: String,
         body: Data?,
         verb: AIProxyHTTPVerb,
+        secondsToWait: UInt = 60,
         contentType: String? = nil,
         additionalHeaders: [String: String] = [:]
     ) async throws -> URLRequest {
@@ -42,6 +44,7 @@ class AIProxyProxiedRequestFactory: AIProxyRequestFactory {
             proxyPath: path,
             body: body,
             verb: verb,
+            secondsToWait: secondsToWait,
             contentType: contentType,
             additionalHeaders: additionalHeaders
         )
@@ -61,6 +64,7 @@ class AIProxyDirectRequestFactory: AIProxyRequestFactory {
         path: String,
         body: Data?,
         verb: AIProxyHTTPVerb,
+        secondsToWait: UInt = 60,
         contentType: String? = nil,
         additionalHeaders: [String: String] = [:]
     ) async throws -> URLRequest {
@@ -69,6 +73,7 @@ class AIProxyDirectRequestFactory: AIProxyRequestFactory {
             path: path,
             body: body,
             verb: verb,
+            secondsToWait: secondsToWait,
             contentType: contentType,
             additionalHeaders: self.additionalHeaders.merging(additionalHeaders) { _, new in new }
         )

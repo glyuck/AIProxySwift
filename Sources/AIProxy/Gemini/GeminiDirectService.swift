@@ -24,10 +24,14 @@ open class GeminiDirectService: GeminiService, DirectService {
     /// - Parameters:
     ///   - body: Request body
     ///   - model: The model to use for generating the completion, e.g. "gemini-1.5-flash"
+    ///   - secondsToWait: Seconds to wait before raising `URLError.timedOut`.
+    ///                    Use `60` if you'd like to be consistent with the default URLSession timeout.
+    ///                    Use a longer timeout if you expect your generations to take longer than sixty seconds.
     /// - Returns: Content generated with Gemini
     public func generateContentRequest(
         body: GeminiGenerateContentRequestBody,
-        model: String
+        model: String,
+        secondsToWait: UInt
     ) async throws -> GeminiGenerateContentResponseBody {
         let proxyPath = "/v1beta/models/\(model):generateContent"
         let request = try AIProxyURLRequest.createDirect(
@@ -35,12 +39,44 @@ open class GeminiDirectService: GeminiService, DirectService {
             path: proxyPath,
             body:  body.serialize(),
             verb: .post,
+            secondsToWait: secondsToWait,
             contentType: "application/json",
             additionalHeaders: [
                 "X-Goog-Api-Key": self.unprotectedAPIKey
             ]
         )
         return try await self.makeRequestAndDeserializeResponse(request)
+    }
+
+    /// Generate content using Gemini and stream the response. Google puts chat completions, audio transcriptions, and
+    /// video capabilities all under the term 'generate content':
+    /// https://ai.google.dev/api/generate-content#method:-models.generatecontent
+    /// - Parameters:
+    ///   - body: Request body
+    ///   - model: The model to use for generating the completion, e.g. "gemini-1.5-flash"
+    ///   - secondsToWait: Seconds to wait before raising `URLError.timedOut`.
+    ///                    Use `60` if you'd like to be consistent with the default URLSession timeout.
+    ///                    Use a longer timeout if you expect your generations to take longer than sixty seconds.
+    /// - Returns: An async sequence of partial content responses. Gemini reuses the same data type for buffered and streaming responses:
+    ///            https://ai.google.dev/api/generate-content#v1beta.GenerateContentResponse
+    public func generateStreamingContentRequest(
+        body: GeminiGenerateContentRequestBody,
+        model: String,
+        secondsToWait: UInt
+    ) async throws -> AsyncCompactMapSequence<AsyncLineSequence<URLSession.AsyncBytes>, GeminiGenerateContentResponseBody> {
+        let proxyPath = "/v1beta/models/\(model):streamGenerateContent?alt=sse"
+        let request = try AIProxyURLRequest.createDirect(
+            baseURL: "https://generativelanguage.googleapis.com",
+            path: proxyPath,
+            body:  body.serialize(),
+            verb: .post,
+            secondsToWait: secondsToWait,
+            contentType: "application/json",
+            additionalHeaders: [
+                "X-Goog-Api-Key": self.unprotectedAPIKey
+            ]
+        )
+        return try await self.makeRequestAndDeserializeStreamingChunks(request)
     }
 
     /// Generate images with the Imagen API
@@ -54,6 +90,7 @@ open class GeminiDirectService: GeminiService, DirectService {
             path: proxyPath,
             body:  body.serialize(),
             verb: .post,
+            secondsToWait: 60,
             contentType: "application/json",
             additionalHeaders: [
                 "X-Goog-Api-Key": self.unprotectedAPIKey
@@ -90,6 +127,7 @@ open class GeminiDirectService: GeminiService, DirectService {
             path: "/upload/v1beta/files",
             body: body.serialize(withBoundary: boundary),
             verb: .post,
+            secondsToWait: 60,
             contentType: "multipart/related; boundary=\(boundary)",
             additionalHeaders: [
                 "X-Goog-Upload-Protocol": "multipart",
@@ -119,6 +157,7 @@ open class GeminiDirectService: GeminiService, DirectService {
             path: fileURL.path,
             body: nil,
             verb: .delete,
+            secondsToWait: 60,
             additionalHeaders: [
                 "X-Goog-Api-Key": self.unprotectedAPIKey
             ]
@@ -142,6 +181,7 @@ open class GeminiDirectService: GeminiService, DirectService {
             path: fileURL.path,
             body: nil,
             verb: .get,
+            secondsToWait: 60,
             additionalHeaders: [
                 "X-Goog-Api-Key": self.unprotectedAPIKey
             ]

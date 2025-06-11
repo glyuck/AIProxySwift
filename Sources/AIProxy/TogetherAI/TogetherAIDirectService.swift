@@ -24,7 +24,8 @@ open class TogetherAIDirectService: TogetherAIService, DirectService {
     /// - Returns: A ChatCompletionResponse. See this reference:
     ///            https://platform.openai.com/docs/api-reference/chat/object
     public func chatCompletionRequest(
-        body: TogetherAIChatCompletionRequestBody
+        body: TogetherAIChatCompletionRequestBody,
+        secondsToWait: UInt
     ) async throws -> TogetherAIChatCompletionResponseBody {
         var body = body
         body.stream = false
@@ -33,6 +34,7 @@ open class TogetherAIDirectService: TogetherAIService, DirectService {
             path: "/v1/chat/completions",
             body: try body.serialize(),
             verb: .post,
+            secondsToWait: secondsToWait,
             contentType: "application/json",
             additionalHeaders: [
                 "Authorization": "Bearer \(self.unprotectedAPIKey)"
@@ -57,6 +59,7 @@ open class TogetherAIDirectService: TogetherAIService, DirectService {
             path: "/v1/chat/completions",
             body: try body.serialize(),
             verb: .post,
+            secondsToWait: 60,
             contentType: "application/json",
             additionalHeaders: [
                 "Authorization": "Bearer \(self.unprotectedAPIKey)"

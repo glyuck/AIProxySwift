@@ -30,10 +30,13 @@ open class ElevenLabsProxiedService: ElevenLabsService, ProxiedService {
     ///   - body: The request body to send to ElevenLabs through AIProxy. See this reference:
     ///           https://elevenlabs.io/docs/api-reference/text-to-speech
     ///
+    ///   - secondsToWait: Seconds to wait before raising `URLError.timedOut`
+    ///
     /// - Returns: Returns audio/mpeg data
     public func ttsRequest(
         voiceID: String,
-        body: ElevenLabsTTSRequestBody
+        body: ElevenLabsTTSRequestBody,
+        secondsToWait: UInt
     ) async throws -> Data {
         let request = try await AIProxyURLRequest.create(
             partialKey: self.partialKey,
@@ -42,6 +45,7 @@ open class ElevenLabsProxiedService: ElevenLabsService, ProxiedService {
             proxyPath: "/v1/text-to-speech/\(voiceID)",
             body: try body.serialize(),
             verb: .post,
+            secondsToWait: secondsToWait,
             contentType: "application/json"
         )
         let (data, _) = try await BackgroundNetworker.makeRequestAndWaitForData(
@@ -61,10 +65,13 @@ open class ElevenLabsProxiedService: ElevenLabsService, ProxiedService {
     ///   - body: The request body to send to ElevenLabs, protected through AIProxy. See this reference:
     ///           https://elevenlabs.io/docs/api-reference/speech-to-speech/convert
     ///
+    ///   - secondsToWait: Seconds to wait before raising `URLError.timedOut`
+    ///
     /// - Returns: Returns audio/mpeg data
     public func speechToSpeechRequest(
         voiceID: String,
-        body: ElevenLabsSpeechToSpeechRequestBody
+        body: ElevenLabsSpeechToSpeechRequestBody,
+        secondsToWait: UInt
     ) async throws -> Data {
         let boundary = UUID().uuidString
         let request = try await AIProxyURLRequest.create(
@@ -74,6 +81,7 @@ open class ElevenLabsProxiedService: ElevenLabsService, ProxiedService {
             proxyPath: "/v1/speech-to-speech/\(voiceID)",
             body: formEncode(body, boundary),
             verb: .post,
+            secondsToWait: secondsToWait,
             contentType: "multipart/form-data; boundary=\(boundary)"
         )
         let (data, _) = try await BackgroundNetworker.makeRequestAndWaitForData(
@@ -81,5 +89,33 @@ open class ElevenLabsProxiedService: ElevenLabsService, ProxiedService {
             request
         )
         return data
+    }
+
+    /// Converts text to speech with a request to `/v1/speech-to-text`
+    ///
+    /// - Parameters:
+    ///
+    ///   - body: The request body to send to ElevenLabs. See this reference:
+    ///           https://elevenlabs.io/docs/api-reference/speech-to-text/convert#request
+    ///
+    ///   - secondsToWait: Seconds to wait before raising `URLError.timedOut`
+    ///
+    /// - Returns: The speech to text response body
+    public func speechToTextRequest(
+        body: ElevenLabsSpeechToTextRequestBody,
+        secondsToWait: UInt
+    ) async throws -> ElevenLabsSpeechToTextResponseBody {
+        let boundary = UUID().uuidString
+        let request = try await AIProxyURLRequest.create(
+            partialKey: self.partialKey,
+            serviceURL: self.serviceURL,
+            clientID: self.clientID,
+            proxyPath: "/v1/speech-to-text",
+            body: formEncode(body, boundary),
+            verb: .post,
+            secondsToWait: secondsToWait,
+            contentType: "multipart/form-data; boundary=\(boundary)"
+        )
+        return try await self.makeRequestAndDeserializeResponse(request)
     }
 }

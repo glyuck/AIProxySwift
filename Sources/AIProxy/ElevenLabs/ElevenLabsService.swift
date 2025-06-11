@@ -16,12 +16,15 @@ public protocol ElevenLabsService {
     ///              available voices.
     ///
     ///   - body: The request body to send to ElevenLabs. See this reference:
-    ///           https://elevenlabs.io/docs/api-reference/text-to-speech
+    ///           https://elevenlabs.io/docs/api-reference/text-to-speech/convert#request
+    ///
+    ///   - secondsToWait: Seconds to wait before raising `URLError.timedOut`
     ///
     /// - Returns: Returns audio/mpeg data
     func ttsRequest(
         voiceID: String,
-        body: ElevenLabsTTSRequestBody
+        body: ElevenLabsTTSRequestBody,
+        secondsToWait: UInt
     ) async throws -> Data
 
     /// Converts speech to speech with a request to `/v1/speech-to-speech/<voice-id>`
@@ -32,12 +35,29 @@ public protocol ElevenLabsService {
     ///              available voices.
     ///
     ///   - body: The request body to send to ElevenLabs. See this reference:
-    ///           https://elevenlabs.io/docs/api-reference/speech-to-speech/convert
+    ///           https://elevenlabs.io/docs/api-reference/speech-to-speech/convert#request
+    ///
+    ///   - secondsToWait: Seconds to wait before raising `URLError.timedOut`
     ///
     /// - Returns: Returns audio/mpeg data
     func speechToSpeechRequest(
         voiceID: String,
-        body: ElevenLabsSpeechToSpeechRequestBody
+        body: ElevenLabsSpeechToSpeechRequestBody,
+        secondsToWait: UInt
     ) async throws -> Data
 
+    /// Converts text to speech with a request to `/v1/speech-to-text`
+    ///
+    /// - Parameters:
+    ///
+    ///   - body: The request body to send to ElevenLabs. See this reference:
+    ///           https://elevenlabs.io/docs/api-reference/speech-to-text/convert#request
+    ///
+    ///   - secondsToWait: Seconds to wait before raising `URLError.timedOut`
+    ///
+    /// - Returns: The speech to text response body
+    func speechToTextRequest(
+        body: ElevenLabsSpeechToTextRequestBody,
+        secondsToWait: UInt
+    ) async throws -> ElevenLabsSpeechToTextResponseBody
 }

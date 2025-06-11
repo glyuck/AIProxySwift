@@ -22,7 +22,7 @@ included:
 - Brave
 
 Your initialization code determines whether requests go straight to the provider or are
-protected through the [AIProxy](https://www.aiproxy.pro) backend.
+protected through the [AIProxy](https://www.aiproxy.com) backend.
 
 We only recommend making requests straight to the provider during prototyping and for BYOK
 use-cases.
@@ -51,10 +51,55 @@ key secure and your AI bill predictable:
 
    <img src="https://github.com/lzell/AIProxySwift/assets/35940/fd76b588-5e19-4d4d-9748-8db3fd64df8e" alt="Set package rule" width="720">
 
+3. Call `AIProxy.configure` during app launch. In a SwiftUI app, you can add an `init` to your `MyApp.swift` file: 
+
+    ```swift
+    import AIProxy
+
+    @main
+    struct MyApp: App {
+        init() {
+            AIProxy.configure(
+                logLevel: .debug,
+                printRequestBodies: false,  // Flip to true for library development
+                printResponseBodies: false, // Flip to true for library development
+                resolveDNSOverTLS: true,
+                useStableID: false,         // Please see the docstring if you'd like to enable this
+            )
+        }
+        // ...
+    }
+    ```
+
+   In a UIKit app, add `configure` to applicationDidFinishLaunching:
+
+    ```swift
+    import AIProxy
+
+    @UIApplicationMain
+    class AppDelegate: UIResponder, UIApplicationDelegate {
+
+        var window: UIWindow?
+
+        func application(_ application: UIApplication,
+                         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+            AIProxy.configure(
+                logLevel: .debug,
+                printRequestBodies: false,  // Flip to true for library development
+                printResponseBodies: false, // Flip to true for library development
+                resolveDNSOverTLS: true,
+                useStableID: true
+            )
+            // ...
+            return true
+        }
+        // ...
+    }
+    ```
 
 ### How to configure the package for use with AIProxy
 
-See the [AIProxy integration video](https://www.aiproxy.pro/docs/integration-guide.html).
+See the [AIProxy integration video](https://www.aiproxy.com/docs/integration-guide.html).
 Note that this is not required if you are shipping an app where the customers provide their own
 API keys (known as BYOK for "bring your own key").
 
@@ -233,6 +278,8 @@ This is useful for `o1` and `o3` models.
 Use this approach to have a conversation with ChatGPT. All previous chat messages, whether
 issued by the user or the assistant (chatGPT), are fed back into the model on each request.
 
+As an alternative, you can use the new ChatGPT Responses API to hold the entire history by passing in the previousResponseId
+
 ```swift
     import AIProxy
 
@@ -384,16 +431,127 @@ This snippet will print out the URL of an image generated with `dall-e-3`:
     // )
 
     do {
-        let requestBody = OpenAICreateImageRequestBody(
-            prompt: "a skier",
-            model: "dall-e-3"
+        let response = try await openAIService.createImageRequest(
+            body: .init(
+                prompt: "a skier",
+                model: .dallE3
+            ),
+            secondsToWait: 300
         )
-        let response = try await openAIService.createImageRequest(body: requestBody)
         print(response.data.first?.url ?? "")
     } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
-        print("Received \(statusCode) status code with response body: \(responseBody)")
+        print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
     } catch {
-        print("Could not generate an image with OpenAI's DALLE: \(error.localizedDescription)")
+        print("Could not create an image with DALLE 3: \(error.localizedDescription)")
+    }
+```
+
+### How to generate an image with OpenAI's gpt-image-1
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    do {
+        let response = try await openAIService.createImageRequest(
+            body: .init(
+                prompt: "a skier",
+                model: .gptImage1
+            ),
+            secondsToWait: 300
+        )
+
+        guard let base64Data = response.data.first?.b64JSON,
+              let imageData = Data(base64Encoded: base64Data),
+              let image = UIImage(data: imageData) else {
+            print("Could not create a UIImage out of the base64 returned by OpenAI")
+            return
+        }
+
+        // Do something with 'image'
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
+    } catch {
+        print("Could not create OpenAI image generation: \(error.localizedDescription)")
+    }
+```
+
+### How to edit an image with OpenAI's gpt-image-1
+
+- This snippet uploads two images to `gpt-image-1`, transfering the material of one to the other.
+- One image is uploaded as a png and the other as a jpeg.
+- The output quality is chosen to be `.low` for speed of generation.
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    guard let image1 = UIImage(named: "my-first-image") else {
+        print("Could not find an image named 'my-first-image' in your app assets")
+        return
+    }
+
+    guard let image2 = UIImage(named: "my-second-image") else {
+        print("Could not find an image named 'my-second-image' in your app assets")
+        return
+    }
+
+    guard let jpegData = AIProxy.encodeImageAsJpeg(image: image1, compressionQuality: 0.4) else {
+        print("Could not convert image to jpeg")
+        return
+    }
+
+    guard let pngData = image2.pngData() else {
+        print("Could not convert image to png")
+        return
+    }
+
+    do {
+        let response = try await openAIService.createImageEditRequest(
+            body: .init(
+                images: [
+                    .jpeg(jpegData),
+                    .png(pngData)
+                ],
+                prompt: "Transfer the material of the second image to the first",
+                model: .gptImage1,
+                quality: .low
+            ),
+            secondsToWait: 300
+        )
+
+        guard let base64Data = response.data.first?.b64JSON,
+              let imageData = Data(base64Encoded: base64Data),
+              let image = UIImage(data: imageData) else {
+            print("Could not create a UIImage out of the base64 returned by OpenAI")
+            return
+        }
+
+        // Do something with 'image'
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
+    } catch {
+        print("Could not create OpenAI edit image generation: \(error.localizedDescription)")
     }
 ```
 
@@ -791,7 +949,7 @@ This example it taken from OpenAI's [function calling guide](https://platform.op
 ```
 
 
-### How to classify text and images as potentially harmful with OpenAI
+### How to classify text as potentially harmful with OpenAI moderations
 
 ```swift
     import AIProxy
@@ -829,6 +987,58 @@ This example it taken from OpenAI's [function calling guide](https://platform.op
         print("Received \(statusCode) status code with response body: \(responseBody)")
     } catch {
         print("Could not perform moderation request to OpenAI")
+    }
+```
+
+### How to classify images as potentially harmful with OpenAI moderations
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openAIService = AIProxy.openAIDirectService(
+    //     unprotectedAPIKey: "your-openai-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openAIService = AIProxy.openAIService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    guard let image = NSImage(named: "myImage") else {
+        print("Could not find an image named 'myImage' in your app assets")
+        return
+    }
+
+    guard let imageURL = AIProxy.encodeImageAsURL(image: image, compressionQuality: 0.4) else {
+        print("Could not encode image as data URL")
+        return
+    }
+
+    let requestBody = OpenAIModerationRequestBody(
+        input: [
+            .image(imageURL)
+        ],
+        model: "omni-moderation-latest"
+    )
+
+    do {
+        let response = try await openAIService.moderationRequest(body: requestBody)
+        print("Is this content flagged: \(response.results.first?.flagged ?? false)")
+        //
+        // For a more detailed assessment of the input content, inspect:
+        //
+        //     response.results.first?.categories
+        //
+        // and
+        //
+        //     response.results.first?.categoryScores
+        //
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not perform image moderation request to OpenAI")
     }
 ```
 
@@ -901,13 +1111,13 @@ getting a basic integration working first narrows down the source of any problem
 
 Take these steps to build and run an OpenAI realtime example: 
 
-1. Generate a new SwiftUI Xcode project called `MyApp`
+1. Generate a new SwiftUI Xcode project
 2. Add the `NSMicrophoneUsageDescription` key to your info.plist file
 3. If macOS, tap your project > your target > Signing & Capabilities and add the following:
     - App Sandbox > Outgoing Connections (client)
     - App Sandbox > Audio Input
     - Hardened Runtime > AudioInput
-4. Replace the contents of `MyApp.swift` with the snippet below
+4. Replace the contents of `ContentView.swift` with the snippet below
 5. Replace the placeholders in the snippet
     - If connecting directly to OpenAI, replace `your-openai-key`
     - If protecting your connection through AIProxy, replace `aiproxy-partial-key` and `aiproxy-service-url`
@@ -922,27 +1132,48 @@ added to the private beta.
 import SwiftUI
 import AIProxy
 
-@main
-struct MyApp: App {
-
+struct ContentView: View {
     let realtimeManager = RealtimeManager()
+    @State private var isRealtimeActive: Bool = false {
+        willSet {
+            if newValue {
+                startRealtime()
+            } else {
+                stopRealtime()
+            }
+        }
+    }
 
-    var body: some Scene {
-        WindowGroup {
-            Button("Start conversation") {
-                Task {
-                    try await realtimeManager.startConversation()
-                }
+    private func startRealtime() {
+        Task {
+            do {
+                try await realtimeManager.startConversation()
+            } catch {
+                print("Could not start OpenAI realtime: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func stopRealtime() {
+        Task {
+            await realtimeManager.stopConversation()
+        }
+    }
+
+    var body: some View {
+        VStack {
+            Button(isRealtimeActive ? "Stop OpenAI Realtime" : "Start OpenAI Realtime") {
+                self.isRealtimeActive.toggle()
             }
         }
     }
 }
 
+
 @RealtimeActor
 final class RealtimeManager {
     private var realtimeSession: OpenAIRealtimeSession?
-    private var microphonePCMSampleVendor: MicrophonePCMSampleVendor?
-    private var audioPCMPlayer: AudioPCMPlayer?
+    private var audioController: AudioController?
 
     nonisolated init() {}
 
@@ -961,12 +1192,8 @@ final class RealtimeManager {
         // Set to false if you want your user to speak first
         let aiSpeaksFirst = true
 
-        // Initialize an audio player to play PCM16 data that we receive from OpenAI:
-        let audioPCMPlayer = try AudioPCMPlayer()
-
-        // Initialize a microphone vendor to vend PCM16 audio samples that we'll send to OpenAI:
-        let microphonePCMSampleVendor = MicrophonePCMSampleVendor()
-        let audioStream = try microphonePCMSampleVendor.start()
+        let audioController = try await AudioController(modes: [.playback, .record])
+        let micStream = try audioController.micStream()
 
         // Start the realtime session:
         let configuration = OpenAIRealtimeSessionConfiguration(
@@ -978,11 +1205,7 @@ final class RealtimeManager {
             outputAudioFormat: .pcm16,
             temperature: 0.7,
             turnDetection: .init(
-                type: .serverVAD(
-                    prefixPaddingMs: 300,
-                    silenceDurationMs: 500,
-                    threshold: 0.5
-                )
+                type: .semanticVAD(eagerness: .medium)
             ),
             voice: "shimmer"
         )
@@ -996,7 +1219,7 @@ final class RealtimeManager {
         // Send audio from the microphone to OpenAI once OpenAI is ready for it:
         var isOpenAIReadyForAudio = false
         Task {
-            for await buffer in audioStream {
+            for await buffer in micStream {
                 if isOpenAIReadyForAudio, let base64Audio = AIProxy.base64EncodeAudioPCMBuffer(from: buffer) {
                     await realtimeSession.sendMessage(
                         OpenAIRealtimeInputAudioBufferAppend(audio: base64Audio)
@@ -1017,10 +1240,10 @@ final class RealtimeManager {
                     } else {
                         isOpenAIReadyForAudio = true
                     }
-                case .responseAudioDelta(let base64Audio):
-                    audioPCMPlayer.playPCM16Audio(from: base64Audio)
+                case .responseAudioDelta(let base64String):
+                    audioController.playPCM16Audio(base64String: base64String)
                 case .inputAudioBufferSpeechStarted:
-                    audioPCMPlayer.interruptPlayback()
+                    audioController.interruptPlayback()
                 case .responseCreated:
                     isOpenAIReadyForAudio = true
                 default:
@@ -1029,17 +1252,14 @@ final class RealtimeManager {
             }
         }
 
-        self.microphonePCMSampleVendor = microphonePCMSampleVendor
-        self.audioPCMPlayer = audioPCMPlayer
         self.realtimeSession = realtimeSession
+        self.audioController = audioController
     }
 
     func stopConversation() {
-        self.microphonePCMSampleVendor?.stop()
-        self.audioPCMPlayer?.interruptPlayback()
+        self.audioController?.stop()
         self.realtimeSession?.disconnect()
-        self.microphonePCMSampleVendor = nil
-        self.audioPCMPlayer = nil
+        self.audioController = nil
         self.realtimeSession = nil
     }
 }
@@ -1063,6 +1283,7 @@ final class RealtimeManager {
 
     let requestBody = OpenAICreateResponseRequestBody(
         input: .text("hello world"),
+        previousResponseId: nil,  // Pass this in on future requests to save chat history
         model: "gpt-4o"
     )
 
@@ -1251,7 +1472,8 @@ You can use all of the OpenAI snippets aboves with one change. Initialize the Op
     do {
         let response = try await geminiService.generateContentRequest(
             body: requestBody,
-            model: "gemini-2.0-flash-exp"
+            model: "gemini-2.0-flash-exp",
+            secondsToWait: 60
         )
         for part in response.candidates?.first?.content?.parts ?? [] {
             switch part {
@@ -1276,6 +1498,59 @@ You can use all of the OpenAI snippets aboves with one change. Initialize the Op
         print("Received \(statusCode) status code with response body: \(responseBody)")
     } catch {
         print("Could not create Gemini generate content request: \(error.localizedDescription)")
+    }
+```
+
+### How to generate streaming text content with Gemini
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let geminiService = AIProxy.geminiDirectService(
+    //     unprotectedAPIKey: "your-gemini-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let geminiService = AIProxy.geminiService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    let requestBody = GeminiGenerateContentRequestBody(
+        contents: [
+            .init(
+                parts: [.text("How do I use product xyz?")]
+            )
+        ],
+        generationConfig: .init(maxOutputTokens: 1024),
+        safetySettings: [
+            .init(category: .dangerousContent, threshold: .none),
+            .init(category: .civicIntegrity, threshold: .none),
+            .init(category: .harassment, threshold: .none),
+            .init(category: .hateSpeech, threshold: .none),
+            .init(category: .sexuallyExplicit, threshold: .none)
+        ],
+        systemInstruction: .init(parts: [.text("Introduce yourself as a customer support person")])
+    )
+    do {
+        let stream = try await geminiService.generateStreamingContentRequest(
+            body: requestBody,
+            model: "gemini-2.0-flash",
+            secondsToWait: 60
+        )
+        for try await chunk in stream {
+            for part in chunk.candidates?.first?.content?.parts ?? [] {
+                if case .text(let text) = part {
+                    print(text)
+                }
+            }
+        }
+        print("Gemini finished streaming")
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not generate Gemini streaming content: \(error.localizedDescription)")
     }
 ```
 
@@ -1343,7 +1618,8 @@ You can use all of the OpenAI snippets aboves with one change. Initialize the Op
     do {
         let response = try await geminiService.generateContentRequest(
             body: requestBody,
-            model: "gemini-2.0-flash-exp"
+            model: "gemini-2.0-flash-exp",
+            secondsToWait: 60
         )
         for part in response.candidates?.first?.content?.parts ?? [] {
             switch part {
@@ -1408,7 +1684,8 @@ credits that you can put towards Gemini.
     do {
         let response = try await geminiService.generateContentRequest(
             body: requestBody,
-            model: "gemini-1.5-flash"
+            model: "gemini-1.5-flash",
+            secondsToWait: 60
         )
         for part in response.candidates?.first?.content?.parts ?? [] {
             switch part {
@@ -1479,7 +1756,8 @@ credits that you can put towards Gemini.
     do {
         let response = try await geminiService.generateContentRequest(
             body: requestBody,
-            model: "gemini-2.0-flash"
+            model: "gemini-2.0-flash",
+            secondsToWait: 60
         )
         for candidate in response.candidates ?? [] {
             for part in candidate.content?.parts ?? [] {
@@ -1550,7 +1828,8 @@ Add a file called `helloworld.m4a` to your Xcode assets before running this samp
         )
         let response = try await geminiService.generateContentRequest(
             body: requestBody,
-            model: "gemini-1.5-flash"
+            model: "gemini-1.5-flash",
+            secondsToWait: 60
         )
         for part in response.candidates?.first?.content?.parts ?? [] {
             switch part {
@@ -1629,7 +1908,8 @@ Add a file called 'my-image.jpg' to Xcode app assets. Then run this snippet:
         )
         let response = try await geminiService.generateContentRequest(
             body: requestBody,
-            model: "gemini-1.5-flash"
+            model: "gemini-1.5-flash",
+            secondsToWait: 60
         )
         for part in response.candidates?.first?.content?.parts ?? [] {
             switch part {
@@ -1747,7 +2027,8 @@ Use the file URL returned from the snippet above.
     do {
         let response = try await geminiService.generateContentRequest(
             body: requestBody,
-            model: "gemini-1.5-flash"
+            model: "gemini-1.5-flash",
+            secondsToWait: 60
         )
         for part in response.candidates?.first?.content?.parts ?? [] {
             switch part {
@@ -1850,7 +2131,8 @@ Use the file URL returned from the snippet above.
         )
         let response = try await geminiService.generateContentRequest(
             body: requestBody,
-            model: "gemini-2.0-flash"
+            model: "gemini-2.0-flash",
+            secondsToWait: 60
         )
         for part in response.candidates?.first?.content?.parts ?? [] {
             if case .text(let text) = part {
@@ -1945,7 +2227,8 @@ Use the file URL returned from the snippet above.
     do {
         let response = try await geminiService.generateContentRequest(
             body: requestBody,
-            model: "gemini-2.0-flash"
+            model: "gemini-2.0-flash",
+            secondsToWait: 60
         )
         for part in response.candidates?.first?.content?.parts ?? [] {
             if case .text(let text) = part {
@@ -2007,7 +2290,8 @@ Use the file URL returned from the snippet above.
     do {
         let response = try await geminiService.generateContentRequest(
             body: requestBody,
-            model: "gemini-2.0-flash-exp-image-generation"
+            model: "gemini-2.0-flash-exp-image-generation",
+            secondsToWait: 120
         )
         for part in response.candidates?.first?.content?.parts ?? [] {
             if case .inlineData(mimeType: let mimeType, base64Data: let base64Data) = part {
@@ -2122,7 +2406,8 @@ Use the file URL returned from the snippet above.
     do {
         let response = try await geminiService.generateContentRequest(
             body: requestBody,
-            model: "gemini-2.0-flash-exp-image-generation"
+            model: "gemini-2.0-flash-exp-image-generation",
+            secondsToWait: 120
         )
         for part in response.candidates?.first?.content?.parts ?? [] {
             if case .inlineData(mimeType: let mimeType, base64Data: let base64Data) = part {
@@ -2137,6 +2422,175 @@ Use the file URL returned from the snippet above.
         print("Received \(statusCode) status code with response body: \(responseBody)")
     } catch {
         print("Could not create Gemini image edit request: \(error.localizedDescription)")
+    }
+```
+
+### How to use single-speaker TTS with Gemini
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let geminiService = AIProxy.geminiDirectService(
+    //     unprotectedAPIKey: "your-gemini-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let geminiService = AIProxy.geminiService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    let requestBody = GeminiGenerateContentRequestBody(
+        contents: [
+            .init(
+                parts: [
+                    .text("Hello world")
+                ],
+                role: "user"
+            )
+        ],
+        generationConfig: .init(
+            responseModalities: [
+                "AUDIO",
+            ],
+            speechConfig: .init(
+                voiceConfig: .init(
+                    prebuiltVoiceConfig: .init(
+                        voiceName: .kore
+                    )
+                )
+            )
+        ),
+        safetySettings: [
+            .init(category: .dangerousContent, threshold: .none),
+            .init(category: .civicIntegrity, threshold: .none),
+            .init(category: .harassment, threshold: .none),
+            .init(category: .hateSpeech, threshold: .none),
+            .init(category: .sexuallyExplicit, threshold: .none)
+        ]
+    )
+
+    do {
+        let response = try await geminiService.generateContentRequest(
+            body: requestBody,
+            model: "gemini-2.5-flash-preview-tts",
+            secondsToWait: 300
+        )
+        for part in response.candidates?.first?.content?.parts ?? [] {
+            if case .inlineData(mimeType: let mimeType, base64Data: let base64Data) = part {
+                print("Gemini generated inline data with mimetype: \(mimeType) and base64Length: \(base64Data.count)")
+
+                // Do not use a local `let` or `var` for AudioController.
+                // You need the lifecycle of the player to live beyond the scope of this function.
+                // Instead, use file scope or set the player as a member of a reference type with long life.
+                // For example, at the top of this file you may define:
+                //
+                //   fileprivate var audioController: AudioController? = nil
+                //
+                // And then use the code below to play the TTS result:
+                audioController = try await AudioController(modes: [.playback])
+                await audioController?.playPCM16Audio(base64String: base64Data)
+            }
+        }
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not create speech using Gemini: \(error.localizedDescription)")
+    }
+```
+
+### How to use multi-speaker TTS with Gemini
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let geminiService = AIProxy.geminiDirectService(
+    //     unprotectedAPIKey: "your-gemini-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let geminiService = AIProxy.geminiService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    let requestBody = GeminiGenerateContentRequestBody(
+        contents: [
+            .init(
+                parts: [
+                    .text("""
+                          Joe: How's it going today, Jane?
+                          Jane: Not too bad, how about you?
+                          """
+                    )
+                ],
+                role: "user"
+            )
+        ],
+        generationConfig: .init(
+            responseModalities: [
+                "AUDIO",
+            ],
+            speechConfig: .init(
+                multiSpeakerVoiceConfig: .init(
+                    speakerVoiceConfigs: [
+                        .init(
+                            speaker: "Joe",
+                            voiceConfig: .init(
+                                prebuiltVoiceConfig: .init(
+                                    voiceName: .puck
+                                )
+                            )
+                        ),
+                        .init(
+                            speaker: "Jane",
+                            voiceConfig: .init(
+                                prebuiltVoiceConfig: .init(
+                                    voiceName: .kore
+                                )
+                            )
+                        )
+                    ]
+                )
+            )
+        ),
+        safetySettings: [
+            .init(category: .dangerousContent, threshold: .none),
+            .init(category: .civicIntegrity, threshold: .none),
+            .init(category: .harassment, threshold: .none),
+            .init(category: .hateSpeech, threshold: .none),
+            .init(category: .sexuallyExplicit, threshold: .none)
+        ]
+    )
+
+    do {
+        let response = try await geminiService.generateContentRequest(
+            body: requestBody,
+            model: "gemini-2.5-flash-preview-tts",
+            secondsToWait: 300
+        )
+        for part in response.candidates?.first?.content?.parts ?? [] {
+            if case .inlineData(mimeType: let mimeType, base64Data: let base64Data) = part {
+                print("Gemini generated inline data with mimetype: \(mimeType) and base64Length: \(base64Data.count)")
+
+                // Do not use a local `let` or `var` for AudioController.
+                // You need the lifecycle of the player to live beyond the scope of this function.
+                // Instead, use file scope or set the player as a member of a reference type with long life.
+                // For example, at the top of this file you may define:
+                //
+                //   fileprivate var audioController: AudioController? = nil
+                //
+                // And then use the code below to play the TTS result:
+                audioController = try await AudioController(modes: [.playback])
+                await audioController?.playPCM16Audio(base64String: base64Data)
+            }
+        }
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received \(statusCode) status code with response body: \(responseBody)")
+    } catch {
+        print("Could not create multi-speaker speech using Gemini: \(error.localizedDescription)")
     }
 ```
 
@@ -3475,6 +3929,92 @@ model owner and model name in the string.
     }
 ```
 
+### How to edit images with Flux Kontext Max on Replicate
+
+```
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let replicateService = AIProxy.replicateDirectService(
+    //     unprotectedAPIKey: "your-replicate-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let replicateService = AIProxy.replicateService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    guard let image = NSImage(named: "my_image") else {
+        print("Could not find an image named 'my_image' in your app assets")
+        return
+    }
+
+    guard let imageURL = AIProxy.encodeImageAsURL(image: image, compressionQuality: 0.5) else {
+        print("Could not encode image as a data URI")
+        return
+    }
+
+    do {
+        let input = ReplicateFluxKontextInputSchema(
+            inputImage: imageURL,
+            prompt: "Make the letters 3D, floating in space above Monument Valley, Utah"
+        )
+        let url = try await replicateService.createFluxKontextMaxImage(
+            input: input,
+            secondsToWait: 120
+        )
+        print("Done creating Flux Kontext Max image: ", url)
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
+    } catch {
+        print("Could not create Flux Kontext Max image: \(error.localizedDescription)")
+    }
+```
+
+### How to edit images with Flux Kontext Pro on Replicate
+
+```
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let replicateService = AIProxy.replicateDirectService(
+    //     unprotectedAPIKey: "your-replicate-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let replicateService = AIProxy.replicateService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    guard let image = NSImage(named: "my_image") else {
+        print("Could not find an image named 'my_image' in your app assets")
+        return
+    }
+
+    guard let imageURL = AIProxy.encodeImageAsURL(image: image, compressionQuality: 0.5) else {
+        print("Could not encode image as a data URI")
+        return
+    }
+
+    do {
+        let input = ReplicateFluxKontextInputSchema(
+            inputImage: imageURL,
+            prompt: "Make the letters 3D, floating in space above Monument Valley, Utah"
+        )
+        let url = try await replicateService.createFluxKontextProImage(
+            input: input,
+            secondsToWait: 120
+        )
+        print("Done creating Flux Kontext Pro image: ", url)
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
+    } catch {
+        print("Could not create Flux Kontext Pro image: \(error.localizedDescription)")
+    }
+```
+
 ***
 
 
@@ -3578,6 +4118,48 @@ model owner and model name in the string.
         print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
     } catch {
         print("Could not create ElevenLabs STS audio: \(error.localizedDescription)")
+    }
+```
+
+### How to use ElevenLabs for speech-to-text
+
+1. Record an audio file in quicktime and save it as "helloworld.m4a"
+2. Add the audio file to your Xcode project. Make sure it's included in your target: select your audio file in the project tree, type `cmd-opt-0` to open the inspect panel, and view `Target Membership`
+3. Run this snippet:
+
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let elevenLabsService = AIProxy.elevenLabsDirectService(
+    //     unprotectedAPIKey: "your-elevenLabs-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let elevenLabsService = AIProxy.elevenLabsService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    guard let localAudioURL = Bundle.main.url(forResource: "helloworld", withExtension: "m4a") else {
+        print("Could not find an audio file named helloworld.m4a in your app bundle")
+        return
+    }
+
+    do {
+        let body = ElevenLabsSpeechToTextRequestBody(
+            modelID: .scribeV1,
+            file: try Data(contentsOf: localAudioURL),
+        )
+        let res = try await elevenLabsService.speechToTextRequest(
+            body: body
+        )
+        print("ElevenLabs transcribed: \(res.text ?? "")")
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
+    } catch {
+        print("Could not create ElevenLabs STT audio: \(error.localizedDescription)")
     }
 ```
 
@@ -3992,11 +4574,15 @@ Use `api.mistral.ai` as the proxy domain when creating your AIProxy service in t
     //     serviceURL: "service-url-from-your-developer-dashboard"
     // )
 
+    let requestBody = MistralChatCompletionRequestBody(
+        messages: [.user(content: "Hello world")],
+        model: "mistral-small-latest"
+    )
     do {
-        let response = try await mistralService.chatCompletionRequest(body: .init(
-            messages: [.user(content: "Hello world")],
-            model: "mistral-small-latest"
-        ))
+        let response = try await mistralService.chatCompletionRequest(
+            body: requestBody,
+            secondsToWait: 60
+        )
         print(response.choices.first?.message.content ?? "")
         if let usage = response.usage {
             print(
@@ -4034,11 +4620,15 @@ Use `api.mistral.ai` as the proxy domain when creating your AIProxy service in t
     //     serviceURL: "service-url-from-your-developer-dashboard"
     // )
 
+    let requestBody = MistralChatCompletionRequestBody(
+        messages: [.user(content: "Hello world")],
+        model: "mistral-small-latest"
+    )
     do {
-        let stream = try await mistralService.streamingChatCompletionRequest(body: .init(
-            messages: [.user(content: "Hello world")],
-            model: "mistral-small-latest"
-        ))
+        let stream = try await mistralService.streamingChatCompletionRequest(
+            body: requestBody,
+            secondsToWait: 60
+        )
         for try await chunk in stream {
             print(chunk.choices.first?.delta.content ?? "")
             if let usage = chunk.usage {
@@ -4056,6 +4646,51 @@ Use `api.mistral.ai` as the proxy domain when creating your AIProxy service in t
         print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
     } catch {
         print("Could not create mistral streaming chat completion: \(error.localizedDescription)")
+    }
+```
+
+### How to perform OCR with Mistral
+
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let mistralService = AIProxy.mistralDirectService(
+    //     unprotectedAPIKey: "your-mistral-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let mistralService = AIProxy.mistralService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    guard let image = NSImage(named: "hello_world") else {
+        print("Could not find an image named 'hello_world' in your app assets")
+        return
+    }
+
+    guard let imageURL = AIProxy.encodeImageAsURL(image: image, compressionQuality: 0.4) else {
+        print("Could not convert image to data URL")
+        return
+    }
+
+    let requestBody = MistralOCRRequestBody(
+        document: .imageURLChunk(imageURL),
+        model: .mistralOCRLatest,
+        includeImageBase64: true
+    )
+
+    do {
+        let response = try await mistralService.ocrRequest(
+            body: requestBody,
+            secondsToWait: 60
+        )
+        print(response.pages.first?.markdown ?? "")
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
+    } catch {
+        print("Could not perform OCR request with Mistral: \(error.localizedDescription)")
     }
 ```
 
@@ -4133,10 +4768,10 @@ Use `flows.eachlabs.ai` as the proxy domain when creating your AIProxy service i
             .system(content: .text("You are a math assistant.")),
             .user(content: .text("Here's why burgers' equation leads to a breaking nonlinearity in shallow water"))
         ],
-        includeReasoning: true,
         models: [
             "deepseek/deepseek-r1",
         ],
+        reasoning: .init(effort: .low),
         temperature: 0.0 /* Set this based on your use case: https://api-docs.deepseek.com/quick_start/parameter_settings*/
     )
 
@@ -4212,10 +4847,10 @@ And then use the corresponding enum from this list: https://openrouter.ai/docs/f
             .system(content: .text("You are a math assistant.")),
             .user(content: .text("Here's why burgers' equation leads to a breaking nonlinearity in shallow water"))
         ],
-        includeReasoning: true,
         models: [
             "deepseek/deepseek-r1",
         ],
+        reasoning: .init(effort: .low),
         temperature: 0.0 /* Set this based on your use case: https://api-docs.deepseek.com/quick_start/parameter_settings*/
     )
 
@@ -4526,6 +5161,80 @@ On macOS, use `NSImage(named:)` in place of `UIImage(named:)`
         print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
     } catch {
         print("Could not make a vision request to OpenRouter: \(error.localizedDescription)")
+    }
+```
+
+
+### How to make a tool call with OpenRouter
+```swift
+    import AIProxy
+
+    /* Uncomment for BYOK use cases */
+    // let openRouterService = AIProxy.openRouterDirectService(
+    //     unprotectedAPIKey: "your-openRouter-key"
+    // )
+
+    /* Uncomment for all other production use cases */
+    // let openRouterService = AIProxy.openRouterService(
+    //     partialKey: "partial-key-from-your-developer-dashboard",
+    //     serviceURL: "service-url-from-your-developer-dashboard"
+    // )
+
+    do {
+        let completion = try await openRouterService.chatCompletionRequest(body: .init(
+            messages: [
+                .user(
+                   content: .text("What is the weather in SF?")
+               )
+            ],
+            models: [
+                "cohere/command-r7b-12-2024",
+                "meta-llama/llama-3.3-70b-instruct",
+                // ...
+            ],
+            route: .fallback,
+            tools: [
+                .function(
+                    name: "get_weather",
+                    description: "Get current temperature for a given location.",
+                    parameters: [
+                        "type": "object",
+                        "properties": [
+                            "location": [
+                                "type": "string",
+                                "description": "City and country e.g. Bogotá, Colombia"
+                            ]
+                        ],
+                        "required": ["location"],
+                        "additionalProperties": false
+                    ],
+                    strict: true
+                )
+            ]
+        ))
+        if let toolCall = completion.choices.first?.message.toolCalls?.first {
+            print("""
+                The model wants us to call function: \(toolCall.function?.name ?? "")
+                With arguments: \(toolCall.function?.arguments ?? [:])
+                Served by \(completion.provider ?? "unspecified")
+                using model \(completion.model ?? "unspecified")
+                """
+            )
+        }
+        if let usage = completion.usage {
+            print(
+                """
+                Used:
+                 \(usage.promptTokens ?? 0) prompt tokens
+                 \(usage.completionTokens ?? 0) completion tokens
+                 \(usage.totalTokens ?? 0) total tokens
+                """
+            )
+        }
+    } catch AIProxyError.unsuccessfulRequest(let statusCode, let responseBody) {
+        print("Received non-200 status code: \(statusCode) with response body: \(responseBody)")
+    } catch {
+        print("Could not get first chat completion: \(error.localizedDescription)")
     }
 ```
 
@@ -5039,6 +5748,11 @@ or
 
      A server with the specified hostname could not be found
 
+or
+
+     NSErrorFailingURLStringKey=https://api.aiproxy.com/your/service/url
+
+
 Modify your macOS project settings by tapping on your project in the Xcode project tree, then
 select `Signing & Capabilities` and enable `Outgoing Connections (client)`
 
@@ -5103,7 +5817,7 @@ thus remove one level of protection.
 
 The `AIPROXY_DEVICE_CHECK_BYPASS` is intended for the simulator only. Do not let it leak into
 a distribution build of your app (including a TestFlight distribution). If you follow the
-[integration steps](https://www.aiproxy.pro/docs/integration-guide.html) we provide, then the
+[integration steps](https://www.aiproxy.com/docs/integration-guide.html) we provide, then the
 constant won't leak because env variables are not packaged into the app bundle.
 
 ## What is the `aiproxyPartialKey` constant?
@@ -5255,7 +5969,7 @@ built-in service, take the following steps to add a custom service to your app:
         struct ChatRequestBody: Encodable {
             let greatPrompt: String
 
-            enum CodingKey: String, CodingKeys {
+            enum CodingKeys: String, CodingKey {
                 case greatPrompt = "great_prompt"
             }
         }
@@ -5280,7 +5994,7 @@ built-in service, take the following steps to add a custom service to your app:
         struct ChatResponseBody: Decodable {
             let generatedMessage: String?
 
-            enum CodingKey: String, CodingKeys {
+            enum CodingKeys: String, CodingKey {
                 case generatedMessage = "generated_message"
             }
         }
