@@ -99,6 +99,45 @@ open class GeminiDirectService: GeminiService, DirectService {
         return try await self.makeRequestAndDeserializeResponse(request)
     }
 
+    /// Generate video with the Veo API
+    public func makeVeoRequest(
+        body: GeminiVeoRequestBody,
+        model: String
+    ) async throws -> GeminiVeoResponseBody {
+        let proxyPath = "/v1beta/models/\(model):predictLongRunning"
+        let request = try AIProxyURLRequest.createDirect(
+            baseURL: "https://generativelanguage.googleapis.com",
+            path: proxyPath,
+            body:  body.serialize(),
+            verb: .post,
+            secondsToWait: 60,
+            contentType: "application/json",
+            additionalHeaders: [
+                "X-Goog-Api-Key": self.unprotectedAPIKey
+            ]
+        )
+        return try await self.makeRequestAndDeserializeResponse(request)
+    }
+
+    /// Get the status of a video generation operation
+    public func getVeoStatus(
+        operationName: String
+    ) async throws -> GeminiVeoStatusResponseBody {
+        let proxyPath = "/v1beta/\(operationName)"
+        let request = try AIProxyURLRequest.createDirect(
+            baseURL: "https://generativelanguage.googleapis.com",
+            path: proxyPath,
+            body:  nil,
+            verb: .get,
+            secondsToWait: 60,
+            contentType: "application/json",
+            additionalHeaders: [
+                "X-Goog-Api-Key": self.unprotectedAPIKey
+            ]
+        )
+        return try await self.makeRequestAndDeserializeResponse(request)
+    }
+
     /// Uploads a file to Google's short term storage.
     ///
     /// The File API lets you store up to 20 GB of files per project, with a per-file maximum
@@ -191,5 +230,26 @@ open class GeminiDirectService: GeminiService, DirectService {
             request
         )
         return try GeminiFile.deserialize(from: data)
+    }
+
+    /// Downloads a file from Google's temporary storage
+    public func downloadFile(
+        fileURL: URL
+    ) async throws -> Data {
+        let request = try AIProxyURLRequest.createDirect(
+            baseURL: fileURL.scheme! + "://" + fileURL.host!,
+            path: fileURL.path + "?alt=media",
+            body: nil,
+            verb: .get,
+            secondsToWait: 60,
+            additionalHeaders: [
+                "X-Goog-Api-Key": self.unprotectedAPIKey
+            ]
+        )
+        let (data, _) = try await BackgroundNetworker.makeRequestAndWaitForData(
+            self.urlSession,
+            request
+        )
+        return data
     }
 }

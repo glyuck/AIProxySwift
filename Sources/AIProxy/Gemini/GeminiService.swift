@@ -48,6 +48,17 @@ public protocol GeminiService {
         model: String
     ) async throws -> GeminiImagenResponseBody
 
+    /// Generate video with the Veo API
+    func makeVeoRequest(
+        body: GeminiVeoRequestBody,
+        model: String
+    ) async throws -> GeminiVeoResponseBody
+
+    /// Get the status of a video generation operation
+    func getVeoStatus(
+        operationName: String
+    ) async throws -> GeminiVeoStatusResponseBody
+
     /// Uploads a file to Google's short term storage.
     ///
     /// The File API lets you store up to 20 GB of files per project, with a per-file maximum
@@ -81,6 +92,11 @@ public protocol GeminiService {
     func getStatus(
         fileURL: URL
     ) async throws -> GeminiFile
+
+    /// Downloads a file from Google's temporary storage
+    func downloadFile(
+        fileURL: URL
+    ) async throws -> Data
 }
 
 extension GeminiService {
