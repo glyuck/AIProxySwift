@@ -51,7 +51,7 @@ extension GeminiVeoRequestBody {
 
         public init(
             aspectRatio: String? = nil,
-            durationSeconds: Int,
+            durationSeconds: Int?,
             enhancePrompt: Bool? = nil,
             generateAudio: Bool? = nil,
             negativePrompt: String? = nil,
@@ -78,7 +78,7 @@ extension GeminiVeoRequestBody {
         /// The following are the accepted values for each model:
         /// - veo-2.0-generate-001: 5-8. The default is 8.
         /// - veo-3.0-generate-preview: 8.
-        public let durationSeconds: Int
+        public let durationSeconds: Int?
 
         /// Use Gemini to enhance your prompts. The default value is true.
         public let enhancePrompt: Bool?
